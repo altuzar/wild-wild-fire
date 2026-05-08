@@ -41,11 +41,17 @@ export function Chat({
   youId,
   messages,
   defaultOpen = false,
+  position = "bottom-right",
 }: {
   roomId: string;
   youId: string;
   messages: ChatMessage[];
   defaultOpen?: boolean;
+  /**
+   * "top-right" keeps the trigger out of a bottom hand bar.
+   * The expanded panel still slides up from the bottom-right.
+   */
+  position?: "bottom-right" | "top-right";
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [text, setText] = useState("");
@@ -85,11 +91,16 @@ export function Chat({
     setSending(false);
   };
 
+  const triggerPosCls =
+    position === "top-right"
+      ? "fixed top-2 right-2 z-40 sm:top-3 sm:right-3"
+      : "fixed bottom-3 right-3 z-30 lg:bottom-4 lg:right-4";
+
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-3 right-3 z-30 flex items-center gap-2 rounded-full border border-flame-700/50 bg-ember-800/95 px-3 py-2 text-sm text-amber-100 shadow-lg backdrop-blur transition hover:scale-105 lg:bottom-4 lg:right-4"
+        className={`${triggerPosCls} flex items-center gap-2 rounded-full border border-flame-700/50 bg-ember-800/95 px-3 py-2 text-sm text-amber-100 shadow-lg backdrop-blur transition hover:scale-105`}
       >
         <MessageCircle className="h-4 w-4" />
         <span className="hidden sm:inline">Chat</span>
@@ -103,7 +114,7 @@ export function Chat({
   }
 
   return (
-    <div className="fixed bottom-3 right-3 z-30 flex max-h-[60vh] w-[min(92vw,340px)] flex-col overflow-hidden rounded-2xl border border-flame-700/50 bg-ember-900/95 shadow-2xl backdrop-blur lg:bottom-4 lg:right-4 lg:w-[340px]">
+    <div className="fixed bottom-3 right-3 z-40 flex max-h-[70vh] w-[min(92vw,340px)] flex-col overflow-hidden rounded-2xl border border-flame-700/50 bg-ember-900/95 shadow-2xl backdrop-blur lg:bottom-4 lg:right-4 lg:w-[340px]">
       <div className="flex items-center justify-between border-b border-flame-800/40 px-3 py-2">
         <div className="flex items-center gap-1.5 text-sm font-bold text-amber-100">
           <MessageCircle className="h-4 w-4 text-flame-500" />

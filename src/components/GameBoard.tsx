@@ -63,6 +63,37 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
   const [shake, setShake] = useState(false);
   const lastHandLenRef = useRef<number>(you?.hand.length ?? 0);
 
+  // Fan-out hand so every card is reachable on narrow screens
+  const handRef = useRef<HTMLDivElement>(null);
+  const [overlap, setOverlap] = useState(0);
+  const handCount = you?.hand.length ?? 0;
+
+  useEffect(() => {
+    const measure = () => {
+      const node = handRef.current;
+      if (!node) return;
+      const w = node.clientWidth;
+      const CARD_W = 76; // matches md card size
+      const GAP = 6;
+      const total = handCount * CARD_W + Math.max(0, handCount - 1) * GAP;
+      if (handCount <= 1 || total <= w) {
+        setOverlap(0);
+        return;
+      }
+      const needed = (total - w) / (handCount - 1) + 2;
+      // Always show at least 24px of each card so it's clickable
+      setOverlap(Math.min(needed + GAP, CARD_W - 24));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (handRef.current) ro.observe(handRef.current);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [handCount]);
+
   useEffect(() => {
     const prevLen = lastDiscardLenRef.current;
     const curLen = game.discardPile.length;
@@ -169,8 +200,8 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
     <div className="relative flex min-h-screen flex-col">
       <div className="ember-bg" />
 
-      {/* Top header */}
-      <header className="relative z-10 flex items-center justify-between border-b border-flame-800/40 bg-ember-900/70 px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
+      {/* Top header — keep right side clear for the chat button */}
+      <header className="relative z-10 flex items-center gap-3 border-b border-flame-800/40 bg-ember-900/70 px-3 py-2 pr-24 backdrop-blur sm:px-4 sm:py-3 sm:pr-32">
         <div className="flex items-center gap-2">
           <Flame className="h-5 w-5 text-flame-500 animate-flicker" />
           <span className="font-mono text-xs tracking-widest text-amber-100 sm:text-sm">
@@ -353,9 +384,19 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
                 </button>
               )}
             </div>
-            <div className="scrollbar-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 sm:gap-2">
-              {you.hand.map((card) => (
-                <div key={card.id} className="shrink-0">
+            <div
+              ref={handRef}
+              className="relative flex w-full justify-center pb-1"
+            >
+              {you.hand.map((card, i) => (
+                <div
+                  key={card.id}
+                  style={{
+                    marginLeft: i === 0 ? 0 : -overlap,
+                    zIndex: selectedCardId === card.id ? 60 : i + 1,
+                  }}
+                  className="relative transition-transform hover:z-50 hover:-translate-y-2 focus-within:z-50"
+                >
                   <CardView
                     card={card}
                     size="md"
@@ -386,6 +427,7 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
         youId={youId}
         messages={game.chat ?? []}
         defaultOpen={false}
+        position="top-right"
       />
     </div>
   );
