@@ -7,6 +7,19 @@ import { useAuth, loadName, saveName } from "@/lib/useAuth";
 import { createRoom } from "@/lib/actions";
 import { currentMode } from "@/lib/store";
 
+function getAuthHelp(error: string): string {
+  if (error.includes("auth/network-request-failed")) {
+    return "Firebase Auth could not be reached. Check browser extensions, VPN/firewall settings, API key restrictions, and Firebase authorized domains.";
+  }
+  if (error.includes("auth/operation-not-allowed")) {
+    return "Enable Anonymous sign-in in Firebase Authentication.";
+  }
+  if (error.includes("auth/unauthorized-domain")) {
+    return "Add this site domain in Firebase Authentication settings.";
+  }
+  return "Check the Firebase Authentication and project settings.";
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { user, error: authError } = useAuth();
@@ -129,8 +142,7 @@ export default function HomePage() {
         )}
         {authError && (
           <p className="mt-4 rounded-lg bg-red-900/50 p-3 text-xs text-red-200">
-            Auth: {authError}. Make sure Anonymous sign-in is enabled in
-            Firebase.
+            Auth: {authError}. {getAuthHelp(authError)}
           </p>
         )}
       </div>
