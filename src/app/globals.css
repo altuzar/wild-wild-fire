@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: radial-gradient(
+      ellipse at top,
+      #2a0e04 0%,
+      #1c0a03 45%,
+      #0b0402 100%
+    );
+  color: #fef3c7;
+  min-height: 100%;
+}
+
+body {
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+
+.fire-text {
+  background: linear-gradient(
+    180deg,
+    #fff7ed 0%,
+    #fdba74 35%,
+    #f97316 60%,
+    #b91c1c 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.card-shadow {
+  box-shadow:
+    0 18px 32px -16px rgba(249, 115, 22, 0.6),
+    0 6px 14px -8px rgba(190, 24, 12, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(249, 115, 22, 0.4);
+  border-radius: 3px;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
