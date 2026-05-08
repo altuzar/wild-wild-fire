@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Flame,
-  RotateCcw,
   ArrowRight,
   ArrowLeft,
   Trophy,
@@ -11,6 +10,7 @@ import {
   Hand as HandIcon,
 } from "lucide-react";
 import type { Card, Game } from "@/lib/types";
+import { CARD_LABELS } from "@/lib/types";
 import { requiresTarget } from "@/lib/cards";
 import {
   challengeUno,
@@ -21,6 +21,28 @@ import {
 } from "@/lib/actions";
 import { CardView } from "./CardView";
 import { PlayerSeat } from "./PlayerSeat";
+import { Chat } from "./Chat";
+import { Confetti } from "./Confetti";
+
+const TOAST_TYPES = new Set([
+  "wild_skip",
+  "wild_skip_two",
+  "wild_reverse",
+  "wild_draw_two",
+  "wild_targeted_draw_two",
+  "wild_draw_four",
+  "wild_forced_swap",
+]);
+
+const TOAST_EMOJI: Record<string, string> = {
+  wild_skip: "⏭️",
+  wild_skip_two: "⏭️⏭️",
+  wild_reverse: "🔄",
+  wild_draw_two: "💥",
+  wild_targeted_draw_two: "🎯",
+  wild_draw_four: "💀",
+  wild_forced_swap: "🔀",
+};
 
 export function GameBoard({ game, youId }: { game: Game; youId: string }) {
   const youIdx = game.players.findIndex((p) => p.id === youId);
@@ -33,12 +55,45 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedCard = useMemo(
-    () => you?.hand.find((c) => c.id === selectedCardId) ?? null,
-    [you, selectedCardId],
-  );
+  // Toast for action cards
+  const [toast, setToast] = useState<{ key: number; type: string; name: string } | null>(null);
+  const lastDiscardLenRef = useRef<number>(game.discardPile.length);
 
-  // Reset selection if it's not your turn or the card is gone
+  // Shake state for hand-size growth (you got hit)
+  const [shake, setShake] = useState(false);
+  const lastHandLenRef = useRef<number>(you?.hand.length ?? 0);
+
+  useEffect(() => {
+    const prevLen = lastDiscardLenRef.current;
+    const curLen = game.discardPile.length;
+    if (curLen > prevLen && topCard && TOAST_TYPES.has(topCard.type)) {
+      const playerName =
+        game.players[
+          (game.turnIndex - game.direction + game.players.length * 2) %
+            game.players.length
+        ]?.name ?? "Someone";
+      setToast({ key: Date.now(), type: topCard.type, name: playerName });
+    }
+    lastDiscardLenRef.current = curLen;
+  }, [game.discardPile.length, topCard, game.players, game.turnIndex, game.direction]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 1700);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  useEffect(() => {
+    const prevLen = lastHandLenRef.current;
+    const curLen = you?.hand.length ?? 0;
+    if (curLen > prevLen + 1) {
+      setShake(true);
+      const t = setTimeout(() => setShake(false), 600);
+      return () => clearTimeout(t);
+    }
+    lastHandLenRef.current = curLen;
+  }, [you?.hand.length]);
+
   useEffect(() => {
     if (!isYourTurn) {
       setSelectedCardId(null);
@@ -92,8 +147,6 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
 
   const handleNewRound = () => wrap(() => resetToLobby(game.id, youId));
 
-  // Order other players around the table starting from the seat after yours,
-  // following play direction.
   const otherPlayers = useMemo(() => {
     const out = [];
     const n = game.players.length;
@@ -108,35 +161,40 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
     ? game.players.find((p) => p.id === game.winnerId)
     : null;
   const isHost = game.hostId === youId;
+  const youWon = winner?.id === youId;
 
   const canSayUno = you && you.hand.length === 2 && !you.saidUno;
 
   return (
     <div className="relative flex min-h-screen flex-col">
+      <div className="ember-bg" />
+
       {/* Top header */}
-      <header className="flex items-center justify-between border-b border-flame-800/40 bg-ember-900/60 px-4 py-3 backdrop-blur">
+      <header className="relative z-10 flex items-center justify-between border-b border-flame-800/40 bg-ember-900/70 px-3 py-2 backdrop-blur sm:px-4 sm:py-3">
         <div className="flex items-center gap-2">
           <Flame className="h-5 w-5 text-flame-500 animate-flicker" />
-          <span className="font-mono text-sm tracking-widest text-amber-100">
+          <span className="font-mono text-xs tracking-widest text-amber-100 sm:text-sm">
             {game.id}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-xs text-amber-200/70">
+        <div className="flex items-center gap-2 text-[11px] text-amber-200/70 sm:gap-3 sm:text-xs">
           <span className="flex items-center gap-1">
             {game.direction === 1 ? (
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-3.5 w-3.5" />
             ) : (
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
             )}
-            {game.direction === 1 ? "Clockwise" : "Reversed"}
+            <span className="hidden sm:inline">
+              {game.direction === 1 ? "Clockwise" : "Reversed"}
+            </span>
           </span>
-          <span>·</span>
-          <span>{game.drawPile.length} in deck</span>
+          <span className="opacity-50">·</span>
+          <span>{game.drawPile.length} 🂠</span>
         </div>
       </header>
 
       {/* Other players */}
-      <section className="grid grid-cols-2 gap-3 p-4 md:grid-cols-3 lg:grid-cols-4">
+      <section className="relative z-10 grid grid-cols-3 gap-1.5 px-2 py-2 sm:grid-cols-4 sm:gap-2 sm:px-4 md:grid-cols-5 lg:grid-cols-6">
         {otherPlayers.map(({ player, idx }) => {
           const canChallenge =
             game.status === "active" &&
@@ -154,62 +212,70 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
               onChallenge={() => handleChallenge(player.id)}
               picking={!!picking && player.id !== youId}
               onPick={() => handlePick(player.id)}
+              compact
             />
           );
         })}
       </section>
 
-      {/* Center: piles + status */}
-      <section className="flex flex-1 flex-col items-center justify-center gap-6 p-4">
+      {/* Center: piles */}
+      <section className="relative z-10 flex flex-1 flex-col items-center justify-center gap-3 px-3 py-2 sm:gap-4">
         {picking && (
-          <div className="rounded-2xl border-2 border-amber-300 bg-amber-900/30 px-6 py-3 text-center text-amber-100">
-            <p className="font-bold">Pick a target for {picking.type.replace(/_/g, " ")}</p>
+          <div className="rounded-2xl border-2 border-amber-300 bg-amber-900/40 px-4 py-2 text-center text-amber-100 shadow-lg">
+            <p className="text-sm font-bold">
+              🎯 Pick a target for {CARD_LABELS[picking.type]}
+            </p>
             <button
               onClick={() => setPicking(null)}
-              className="mt-1 text-xs underline opacity-70"
+              className="mt-0.5 text-[11px] underline opacity-70"
             >
               cancel
             </button>
           </div>
         )}
 
-        <div className="flex items-end gap-8">
-          <div className="flex flex-col items-center gap-2">
+        <div className="flex items-end gap-4 sm:gap-6">
+          <div className="flex flex-col items-center gap-1">
             <button
               onClick={handleDraw}
               disabled={!isYourTurn || busy}
-              className={`relative ${isYourTurn ? "hover:scale-105" : ""}`}
+              className={`relative ${isYourTurn ? "active:scale-95" : ""}`}
               title={isYourTurn ? "Draw a card" : ""}
             >
-              <CardView size="lg" faceDown />
+              <CardView size="md" faceDown highlighted={isYourTurn} />
               {isYourTurn && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-flame-500 px-2 py-0.5 text-[10px] font-black uppercase text-ember-900">
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-flame-500 px-2 py-0.5 text-[9px] font-black uppercase text-ember-900">
                   Draw
                 </span>
               )}
             </button>
-            <span className="text-xs text-amber-300/60">{game.drawPile.length}</span>
+            <span className="text-[10px] text-amber-300/60 sm:text-xs">
+              {game.drawPile.length}
+            </span>
           </div>
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-1">
             {topCard ? (
-              <div className="animate-deal">
-                <CardView card={topCard} size="lg" disabled />
+              <div key={topCard.id} className="card-pop">
+                <CardView card={topCard} size="md" disabled />
               </div>
             ) : (
-              <div className="h-36 w-24 rounded-xl border-2 border-dashed border-flame-700/40" />
+              <div className="h-[108px] w-[76px] rounded-xl border-2 border-dashed border-flame-700/40" />
             )}
-            <span className="text-xs text-amber-300/60">discard</span>
+            <span className="text-[10px] text-amber-300/60 sm:text-xs">
+              discard
+            </span>
           </div>
         </div>
 
         {game.status === "active" && (
           <div className="text-center">
             {isYourTurn ? (
-              <p className="text-lg font-black uppercase tracking-widest text-flame-400 animate-flicker">
-                Your turn
+              <p className="animate-flicker text-base font-black uppercase tracking-widest text-flame-400 sm:text-lg">
+                🔥 Your turn 🔥
               </p>
             ) : (
-              <p className="text-sm uppercase tracking-widest text-amber-200/70">
+              <p className="text-xs uppercase tracking-widest text-amber-200/70 sm:text-sm">
+                {game.players[game.turnIndex]?.avatar}{" "}
                 {game.players[game.turnIndex]?.name}'s turn
               </p>
             )}
@@ -217,16 +283,19 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
         )}
 
         {game.status === "finished" && winner && (
-          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-amber-300 bg-amber-900/30 p-6">
+          <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-amber-300 bg-amber-900/40 p-4 shadow-2xl sm:p-6">
             <Trophy className="h-10 w-10 text-amber-300" />
-            <p className="text-2xl font-black uppercase tracking-wider text-amber-100">
-              {winner.name} wins!
+            <p className="text-xl font-black uppercase tracking-wider text-amber-100 sm:text-2xl">
+              {winner.avatar} {winner.name} wins!
+            </p>
+            <p className="text-xs text-amber-200/70">
+              {youWon ? "🎉 That's YOU! 🎉" : "Better luck next round."}
             </p>
             {isHost && (
               <button
                 onClick={handleNewRound}
                 disabled={busy}
-                className="rounded-xl bg-flame-600 px-5 py-2 font-bold text-amber-50 hover:bg-flame-500"
+                className="mt-1 rounded-xl bg-flame-600 px-5 py-2 text-sm font-bold text-amber-50 hover:bg-flame-500 active:scale-95"
               >
                 <Home className="mr-1 inline h-4 w-4" />
                 Back to lobby
@@ -236,33 +305,55 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
         )}
       </section>
 
+      {/* Action card toast */}
+      {toast && (
+        <div
+          key={toast.key}
+          className="banner-slam pointer-events-none fixed left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2"
+        >
+          <div className="rounded-2xl border-4 border-amber-300 bg-flame-700/95 px-6 py-4 text-center shadow-2xl">
+            <div className="text-4xl sm:text-5xl">{TOAST_EMOJI[toast.type]}</div>
+            <div className="text-base font-black uppercase tracking-widest text-amber-50 sm:text-lg">
+              {CARD_LABELS[toast.type as keyof typeof CARD_LABELS]}!
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confetti when someone wins */}
+      {game.status === "finished" && <Confetti count={42} />}
+
       {/* Your hand */}
-      <section className="sticky bottom-0 border-t border-flame-800/40 bg-ember-900/80 px-4 pb-6 pt-3 backdrop-blur">
+      <section
+        className={`sticky bottom-0 z-20 border-t border-flame-800/40 bg-ember-900/90 px-2 pb-2 pt-2 backdrop-blur sm:px-4 sm:pt-3 ${shake ? "shake" : ""}`}
+      >
         {you && (
           <>
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-amber-200/70">
-                <HandIcon className="h-4 w-4" />
-                <span>{you.name} (you) — {you.hand.length} cards</span>
+            <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
+              <div className="flex min-w-0 items-center gap-2 text-[11px] text-amber-200/80 sm:text-xs">
+                <span className="text-base sm:text-lg">{you.avatar}</span>
+                <HandIcon className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  <span className="font-bold text-amber-100">{you.name}</span>
+                  <span className="opacity-70"> · {you.hand.length} cards</span>
+                </span>
                 {you.hand.length === 1 && you.saidUno && (
-                  <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-black text-ember-900">
+                  <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black text-ember-900">
                     UNO!
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                {canSayUno && (
-                  <button
-                    onClick={handleSayUno}
-                    disabled={busy}
-                    className="rounded-full bg-gradient-to-r from-amber-400 to-flame-500 px-4 py-1.5 text-sm font-black uppercase tracking-widest text-ember-900 shadow-lg hover:brightness-110"
-                  >
-                    UNO!
-                  </button>
-                )}
-              </div>
+              {canSayUno && (
+                <button
+                  onClick={handleSayUno}
+                  disabled={busy}
+                  className="rounded-full bg-gradient-to-r from-amber-400 to-flame-500 px-4 py-1.5 text-sm font-black uppercase tracking-widest text-ember-900 shadow-lg transition hover:brightness-110 active:scale-95 sm:text-base"
+                >
+                  UNO!
+                </button>
+              )}
             </div>
-            <div className="scrollbar-thin -mx-2 flex gap-2 overflow-x-auto px-2 pb-2">
+            <div className="scrollbar-thin -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 sm:gap-2">
               {you.hand.map((card) => (
                 <div key={card.id} className="shrink-0">
                   <CardView
@@ -276,7 +367,7 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
               ))}
               {you.hand.length === 0 && (
                 <p className="px-4 py-6 text-sm text-amber-200/50">
-                  You're empty-handed.
+                  You're empty-handed. 🎉
                 </p>
               )}
             </div>
@@ -284,22 +375,18 @@ export function GameBoard({ game, youId }: { game: Game; youId: string }) {
         )}
 
         {error && (
-          <p className="mt-2 rounded-lg bg-red-900/50 p-2 text-xs text-red-200">
+          <p className="mt-1.5 rounded-lg bg-red-900/50 p-1.5 text-[11px] text-red-200">
             {error}
           </p>
         )}
       </section>
 
-      {/* Log */}
-      <aside className="pointer-events-none fixed bottom-32 right-4 hidden w-64 lg:block">
-        <div className="scrollbar-thin pointer-events-auto max-h-64 overflow-y-auto rounded-2xl border border-flame-800/40 bg-ember-900/80 p-3 text-xs text-amber-100/80 backdrop-blur">
-          {game.log.slice(-12).map((line, i) => (
-            <p key={i} className="py-0.5">
-              {line}
-            </p>
-          ))}
-        </div>
-      </aside>
+      <Chat
+        roomId={game.id}
+        youId={youId}
+        messages={game.chat ?? []}
+        defaultOpen={false}
+      />
     </div>
   );
 }

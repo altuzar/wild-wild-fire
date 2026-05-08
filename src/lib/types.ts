@@ -24,6 +24,17 @@ export interface Player {
   connected: boolean;
   isBot?: boolean;
   botDifficulty?: BotDifficulty;
+  avatar?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  avatar?: string;
+  text: string;
+  isBot?: boolean;
+  ts: number;
 }
 
 export type GameStatus = "waiting" | "active" | "finished";
@@ -46,6 +57,7 @@ export interface Game {
   pendingAction: PendingAction | null;
   winnerId: string | null;
   log: string[];
+  chat: ChatMessage[];
   createdAt: number;
   updatedAt: number;
 }

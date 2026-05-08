@@ -1,4 +1,5 @@
 import { requiresTarget } from "./cards";
+import { pickRandomAvatar } from "./avatars";
 import type { BotDifficulty, Card, CardType, Game, Player } from "./types";
 
 const BOT_NAMES = [
@@ -31,6 +32,16 @@ export function pickBotName(taken: string[]): string {
   return `Bot${Math.floor(Math.random() * 999)}`;
 }
 
+export function isAutoPlayed(player: Player): boolean {
+  return Boolean(player.isBot) || !player.connected;
+}
+
+export function effectiveDifficulty(player: Player): BotDifficulty {
+  if (player.botDifficulty) return player.botDifficulty;
+  // Disconnected humans get medium-skill AI takeover
+  return "medium";
+}
+
 export function makeBot(difficulty: BotDifficulty, name: string): Player {
   return {
     id: `bot-${Math.random().toString(36).slice(2, 10)}`,
@@ -41,7 +52,23 @@ export function makeBot(difficulty: BotDifficulty, name: string): Player {
     connected: true,
     isBot: true,
     botDifficulty: difficulty,
+    avatar: pickRandomAvatar(),
   };
+}
+
+const BOT_REACTIONS: Record<BotDifficulty, string[]> = {
+  easy: ["🤣", "😅", "🎲", "🤷", "🙃", "😬", "✨"],
+  medium: ["🔥", "😎", "💪", "🎯", "🤔", "🎲", "👀"],
+  hard: ["💀", "😈", "🐍", "⚡", "🔥", "🎯", "💯", "🥶"],
+};
+
+export function maybeBotChatLine(bot: Player): string | null {
+  if (!bot.isBot) return null;
+  const diff = bot.botDifficulty ?? "easy";
+  const chance = diff === "hard" ? 0.18 : diff === "medium" ? 0.12 : 0.06;
+  if (Math.random() > chance) return null;
+  const pool = BOT_REACTIONS[diff];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 export interface BotPlay {
@@ -91,7 +118,7 @@ function scoreCard(type: CardType, ctx: ScoreCtx): number {
 }
 
 export function decideBotPlay(game: Game, bot: Player): BotPlay {
-  const diff: BotDifficulty = bot.botDifficulty ?? "easy";
+  const diff: BotDifficulty = effectiveDifficulty(bot);
   const opponents = game.players.filter((p) => p.id !== bot.id);
   const minOpp = Math.min(...opponents.map((p) => p.hand.length));
   const ctx: ScoreCtx = { selfHand: bot.hand.length, minOpponentHand: minOpp };
@@ -141,7 +168,7 @@ export function decideBotPlay(game: Game, bot: Player): BotPlay {
 export function shouldBotSayUno(bot: Player): boolean {
   if (bot.hand.length !== 2) return false;
   if (bot.saidUno) return false;
-  const diff: BotDifficulty = bot.botDifficulty ?? "easy";
+  const diff: BotDifficulty = effectiveDifficulty(bot);
   if (diff === "easy") return Math.random() < 0.35;
   return true; // medium + hard always say UNO before playing
 }
@@ -150,10 +177,11 @@ export function shouldBotChallenge(
   challenger: Player,
   target: Player,
 ): boolean {
+  // Only true bots auto-challenge — AFK humans don't (would be rude)
   if (!challenger.isBot) return false;
   if (target.hand.length !== 1 || target.saidUno) return false;
   if (challenger.id === target.id) return false;
-  const diff: BotDifficulty = challenger.botDifficulty ?? "easy";
+  const diff: BotDifficulty = effectiveDifficulty(challenger);
   if (diff === "easy") return false;
   if (diff === "medium") return Math.random() < 0.5;
   return true; // hard always

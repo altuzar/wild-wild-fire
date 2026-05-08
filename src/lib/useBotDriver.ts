@@ -4,28 +4,48 @@ import { useEffect, useRef } from "react";
 import type { Game } from "./types";
 import {
   decideBotPlay,
+  isAutoPlayed,
+  maybeBotChatLine,
   shouldBotChallenge,
   shouldBotSayUno,
 } from "./bots";
-import { challengeUno, drawCard, playCard, sayUno } from "./actions";
+import { challengeUno, drawCard, playCard, sayUno, sendChat } from "./actions";
 
 /**
- * Drives bot turns and bot challenges. Only the host runs this so we don't
- * race multiple clients firing the same bot move.
+ * Pick the player who should drive auto-play (bots + disconnected humans).
+ * Lowest-id connected human wins. Falls back to host if no humans connected
+ * (to keep things moving if a host with bots is the only one left).
+ */
+function findDriverId(game: Game): string | null {
+  const connectedHumans = game.players
+    .filter((p) => !p.isBot && p.connected)
+    .map((p) => p.id)
+    .sort();
+  if (connectedHumans.length) return connectedHumans[0];
+  // If literally no humans are connected, no one drives — game freezes
+  // until someone reconnects. (We don't want bots playing to a winner alone.)
+  return null;
+}
+
+/**
+ * Drives auto-played turns and bot challenges. Runs in every viewer's tab,
+ * but only the elected driver actually executes — keeps writes serialized.
  */
 export function useBotDriver(game: Game | null, viewerId: string | null) {
   const lastActionRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!game || !viewerId) return;
-    if (game.hostId !== viewerId) return;
     if (game.status !== "active") return;
+
+    const driverId = findDriverId(game);
+    if (driverId !== viewerId) return;
 
     const current = game.players[game.turnIndex];
 
-    // Bot turn?
-    if (current?.isBot && current.hand.length > 0) {
-      const turnKey = `turn:${game.id}:${game.turnIndex}:${game.discardPile.length}:${current.hand.length}`;
+    // Auto-play turn? (real bot OR disconnected human)
+    if (current && isAutoPlayed(current) && current.hand.length > 0) {
+      const turnKey = `turn:${game.id}:${game.turnIndex}:${game.discardPile.length}:${current.hand.length}:${current.connected ? 1 : 0}`;
       if (lastActionRef.current === turnKey) return;
       lastActionRef.current = turnKey;
 
@@ -39,14 +59,19 @@ export function useBotDriver(game: Game | null, viewerId: string | null) {
           await playCard(game.id, current.id, move.cardId, {
             targetId: move.targetId,
           });
+          // Maybe drop a one-emoji trash-talk line (real bots only)
+          const line = maybeBotChatLine(current);
+          if (line) {
+            sendChat(game.id, current.id, line).catch(() => {});
+          }
         } catch {
-          // Likely a stale game snapshot — next render will retry
+          // Stale snapshot — next render retries
         }
       }, delay);
       return () => clearTimeout(timer);
     }
 
-    // Otherwise — any bot want to challenge a sleeping opponent?
+    // Bot challenges of sleeping opponents
     for (const bot of game.players) {
       if (!bot.isBot) continue;
       for (const target of game.players) {

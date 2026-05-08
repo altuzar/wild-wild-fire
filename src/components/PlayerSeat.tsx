@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Flame,
   Crown,
   WifiOff,
   AlertCircle,
@@ -10,7 +9,7 @@ import {
   X,
 } from "lucide-react";
 import type { Player } from "@/lib/types";
-import { CardView } from "./CardView";
+import { Avatar } from "./Avatar";
 
 export function PlayerSeat({
   player,
@@ -23,6 +22,8 @@ export function PlayerSeat({
   onPick,
   picking,
   onRemove,
+  shake,
+  compact,
 }: {
   player: Player;
   isHost: boolean;
@@ -34,74 +35,86 @@ export function PlayerSeat({
   onPick?: () => void;
   picking?: boolean;
   onRemove?: () => void;
+  shake?: boolean;
+  compact?: boolean;
 }) {
   const handCount = player.hand.length;
   const showUnoBadge = handCount === 1 && player.saidUno;
   const vulnerable = handCount === 1 && !player.saidUno;
+  const afk = !player.connected && status !== "waiting" && !player.isBot;
 
   return (
     <div
-      className={`relative flex flex-col items-center gap-2 rounded-2xl border p-3 transition ${
+      className={`relative flex flex-col items-center gap-1 rounded-2xl border p-2 transition ${
         isCurrent
-          ? "border-flame-400 bg-flame-900/40 shadow-[0_0_30px_-5px_rgba(249,115,22,0.6)]"
+          ? "border-flame-400 bg-flame-900/40 shadow-[0_0_24px_-4px_rgba(249,115,22,0.7)]"
           : "border-flame-800/40 bg-ember-800/40"
-      } ${picking ? "cursor-pointer ring-2 ring-amber-300 hover:bg-amber-900/30" : ""}`}
+      } ${picking ? "cursor-pointer ring-2 ring-amber-300 hover:bg-amber-900/30" : ""} ${
+        shake ? "shake" : ""
+      }`}
       onClick={picking ? onPick : undefined}
     >
-      <div className="flex items-center gap-1 text-sm font-bold">
-        {isHost && <Crown className="h-3.5 w-3.5 text-amber-300" />}
-        {player.isBot && <Bot className="h-3.5 w-3.5 text-sky-300" />}
-        <span className={isYou ? "text-amber-200" : "text-amber-100"}>
+      {onRemove && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute -right-1 -top-1 rounded-full bg-red-900/80 p-0.5 text-red-200 hover:bg-red-700"
+          title="Remove"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+
+      <Avatar
+        emoji={player.avatar}
+        size={compact ? "sm" : "md"}
+        glow={isCurrent && status === "active"}
+      />
+
+      <div className="flex max-w-full items-center gap-1 truncate text-xs font-bold leading-tight">
+        {isHost && <Crown className="h-3 w-3 shrink-0 text-amber-300" />}
+        {player.isBot && <Bot className="h-3 w-3 shrink-0 text-sky-300" />}
+        <span className={`truncate ${isYou ? "text-amber-200" : "text-amber-100"}`}>
           {player.name}
-          {isYou && " (you)"}
+          {isYou && " ★"}
         </span>
-        {!player.connected && status !== "waiting" && !player.isBot && (
-          <WifiOff className="h-3.5 w-3.5 text-red-400" />
-        )}
-        {onRemove && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove();
-            }}
-            className="ml-1 rounded-full p-0.5 text-amber-200/60 hover:bg-red-900/40 hover:text-red-300"
-            title="Remove"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        )}
       </div>
 
+      {afk && (
+        <span
+          title="AFK — AI is playing for them"
+          className="flex items-center gap-1 rounded-full bg-sky-900/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-sky-200"
+        >
+          <WifiOff className="h-2.5 w-2.5" />
+          AI
+        </span>
+      )}
+
       {status === "waiting" ? (
-        <div className="flex items-center gap-1 text-xs">
+        <div className="flex items-center gap-1 text-[11px]">
           {player.isReady ? (
             <>
-              <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+              <CheckCircle2 className="h-3 w-3 text-green-400" />
               <span className="text-green-300">Ready</span>
             </>
           ) : (
-            <span className="text-amber-200/60">Waiting…</span>
+            <span className="text-amber-200/60">…</span>
           )}
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap justify-center gap-0.5">
-            {Array.from({ length: Math.min(handCount, 8) }).map((_, i) => (
-              <div key={i} className="-ml-2 first:ml-0">
-                <CardView size="sm" faceDown />
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <Flame className="h-3.5 w-3.5 text-flame-500" />
-            <span className="font-mono">{handCount}</span>
+          <div className="flex items-center gap-1.5 rounded-full bg-ember-900/80 px-2 py-0.5 text-[11px]">
+            <span className="font-mono font-bold">{handCount}</span>
+            <span className="text-amber-300/60">cards</span>
             {showUnoBadge && (
-              <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-black text-ember-900">
+              <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-black text-ember-900">
                 UNO!
               </span>
             )}
-            {vulnerable && status === "active" && (
-              <AlertCircle className="h-3.5 w-3.5 text-rose-400 animate-pulse" />
+            {vulnerable && (
+              <AlertCircle className="h-3 w-3 animate-pulse text-rose-400" />
             )}
           </div>
           {canChallenge && (
@@ -110,7 +123,7 @@ export function PlayerSeat({
                 e.stopPropagation();
                 onChallenge?.();
               }}
-              className="mt-1 rounded-lg bg-rose-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-rose-600"
+              className="rounded-lg bg-rose-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white transition hover:bg-rose-600 active:scale-95"
             >
               Challenge!
             </button>

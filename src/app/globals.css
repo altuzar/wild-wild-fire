@@ -8,14 +8,12 @@
 
 html,
 body {
-  background: radial-gradient(
-      ellipse at top,
-      #2a0e04 0%,
-      #1c0a03 45%,
-      #0b0402 100%
-    );
+  background:
+    radial-gradient(ellipse at top, #2a0e04 0%, #1c0a03 45%, #0b0402 100%),
+    #0b0402;
   color: #fef3c7;
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -39,6 +37,7 @@ body {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(249, 115, 22, 0.45));
 }
 
 .card-shadow {
@@ -46,6 +45,31 @@ body {
     0 18px 32px -16px rgba(249, 115, 22, 0.6),
     0 6px 14px -8px rgba(190, 24, 12, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+/* Background ember dots */
+.ember-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(2px 2px at 12% 30%, rgba(249, 115, 22, 0.35), transparent 50%),
+    radial-gradient(1.5px 1.5px at 75% 60%, rgba(251, 191, 36, 0.25), transparent 50%),
+    radial-gradient(2.5px 2.5px at 40% 80%, rgba(220, 38, 38, 0.3), transparent 50%),
+    radial-gradient(1.5px 1.5px at 90% 20%, rgba(253, 186, 116, 0.3), transparent 50%);
+  animation: emberFloat 18s ease-in-out infinite alternate;
+}
+
+@keyframes emberFloat {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-12px) scale(1.04);
+    opacity: 1;
+  }
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -60,4 +84,153 @@ body {
 button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Confetti pieces (fire-themed) */
+.confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  overflow: hidden;
+}
+.confetti span {
+  position: absolute;
+  top: -10vh;
+  font-size: 22px;
+  animation: confettiFall linear forwards;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(540deg);
+    opacity: 0.9;
+  }
+}
+
+/* Active-turn pulse glow */
+.glow-pulse {
+  animation: glowPulse 1.6s ease-in-out infinite;
+}
+@keyframes glowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(249, 115, 22, 0);
+  }
+}
+
+/* Card play pop */
+.card-pop {
+  animation: cardPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes cardPop {
+  0% {
+    transform: scale(0.4) translateY(60px) rotate(-12deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08) translateY(-4px) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0) rotate(0);
+    opacity: 1;
+  }
+}
+
+/* Banner slam */
+.banner-slam {
+  animation: bannerSlam 1.6s ease-out forwards;
+}
+@keyframes bannerSlam {
+  0% {
+    transform: scale(0.4) rotate(-5deg);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1.15) rotate(2deg);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(1) rotate(0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.92) translateY(-10px);
+    opacity: 0;
+  }
+}
+
+/* Hand card hover lift */
+.lift-on-hover {
+  transition: transform 200ms ease, filter 200ms ease;
+}
+.lift-on-hover:hover {
+  transform: translateY(-10px) rotate(-1deg);
+  filter: brightness(1.1);
+}
+
+/* Shake when getting hit */
+.shake {
+  animation: shake 480ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  80% {
+    transform: translateX(3px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-5px);
+  }
+  40%,
+  60% {
+    transform: translateX(5px);
+  }
+}
+
+/* Existing flicker / deal kept for compatibility */
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translateY(-1px);
+  }
+}
+.animate-flicker {
+  animation: flicker 1.6s ease-in-out infinite;
+}
+@keyframes deal {
+  0% {
+    transform: translateY(-200px) rotate(-15deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
+}
+.animate-deal {
+  animation: deal 350ms ease-out;
 }

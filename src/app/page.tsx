@@ -70,7 +70,9 @@ export default function HomePage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-10 p-8">
+    <>
+      <div className="ember-bg" />
+    <main className="relative z-10 mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-8 p-6 sm:gap-10 sm:p-8">
       {mode === "local" && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-900/30 px-4 py-2 text-center text-xs text-amber-200">
           <strong className="text-amber-100">Local mode</strong> — no Firebase
@@ -151,5 +153,6 @@ export default function HomePage() {
         {user ? `auth ✓ ${user.uid.slice(0, 6)}` : "connecting…"}
       </p>
     </main>
+    </>
   );
 }

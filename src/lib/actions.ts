@@ -1,7 +1,8 @@
 "use client";
 
-import type { BotDifficulty, Game } from "./types";
+import type { BotDifficulty, ChatMessage, Game } from "./types";
 import { makeBot, pickBotName } from "./bots";
+import { nextAvatar, pickRandomAvatar } from "./avatars";
 import {
   STARTING_HAND_SIZE,
   createInitialGame,
@@ -50,6 +51,9 @@ export async function joinRoom(roomId: string, playerId: string, playerName: str
     }
     if (game.players.length >= 8) throw new Error("Room is full");
     if (!game.players.find((p) => p.id === playerId)) {
+      const taken = game.players
+        .map((p) => p.avatar)
+        .filter((a): a is string => !!a);
       game.players.push({
         id: playerId,
         name: playerName || "Player",
@@ -57,8 +61,60 @@ export async function joinRoom(roomId: string, playerId: string, playerName: str
         isReady: false,
         saidUno: false,
         connected: true,
+        avatar: pickRandomAvatar(taken),
       });
       logPush(game, `${playerName} joined`);
+    }
+    return game;
+  });
+}
+
+export async function setAvatar(roomId: string, playerId: string, avatar: string) {
+  await getStore().transact(roomId, (current) => {
+    if (!current) throw new Error("Room not found");
+    const game = clone(current);
+    const p = game.players.find((p) => p.id === playerId);
+    if (!p) throw new Error("Not in this room");
+    p.avatar = avatar;
+    return game;
+  });
+}
+
+export async function cycleAvatar(roomId: string, playerId: string) {
+  await getStore().transact(roomId, (current) => {
+    if (!current) throw new Error("Room not found");
+    const game = clone(current);
+    const p = game.players.find((p) => p.id === playerId);
+    if (!p) throw new Error("Not in this room");
+    p.avatar = nextAvatar(p.avatar);
+    return game;
+  });
+}
+
+export async function sendChat(
+  roomId: string,
+  playerId: string,
+  text: string,
+) {
+  const trimmed = text.trim().slice(0, 80);
+  if (!trimmed) return;
+  await getStore().transact(roomId, (current) => {
+    if (!current) throw new Error("Room not found");
+    const game = clone(current);
+    const p = game.players.find((p) => p.id === playerId);
+    if (!p) throw new Error("Not in this room");
+    const msg: ChatMessage = {
+      id: `m${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      playerId: p.id,
+      playerName: p.name,
+      avatar: p.avatar,
+      text: trimmed,
+      isBot: !!p.isBot,
+      ts: Date.now(),
+    };
+    game.chat = (game.chat ?? []).concat(msg);
+    if (game.chat.length > 60) {
+      game.chat = game.chat.slice(-60);
     }
     return game;
   });
@@ -129,6 +185,28 @@ export async function startGame(roomId: string, hostId: string) {
       throw new Error("All players must be ready");
     }
     return startGameState(clone(current));
+  });
+}
+
+export async function markPresence(
+  roomId: string,
+  playerId: string,
+  connected: boolean,
+) {
+  await getStore().transact(roomId, (current) => {
+    if (!current) throw new Error("Room not found");
+    const game = clone(current);
+    const p = game.players.find((p) => p.id === playerId);
+    if (!p) return game;
+    if (p.connected === connected) return game; // no-op
+    p.connected = connected;
+    if (game.status !== "waiting") {
+      logPush(
+        game,
+        connected ? `${p.name} reconnected` : `${p.name} went AFK — AI taking over`,
+      );
+    }
+    return game;
   });
 }
 

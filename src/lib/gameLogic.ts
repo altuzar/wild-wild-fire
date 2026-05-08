@@ -1,4 +1,5 @@
 import { buildDeck, shuffle } from "./cards";
+import { pickRandomAvatar } from "./avatars";
 import type { Card, Game, Player } from "./types";
 
 export const STARTING_HAND_SIZE = 7;
@@ -21,6 +22,7 @@ export function createInitialGame(opts: {
         isReady: false,
         saidUno: false,
         connected: true,
+        avatar: pickRandomAvatar(),
       },
     ],
     drawPile: [],
@@ -30,6 +32,7 @@ export function createInitialGame(opts: {
     pendingAction: null,
     winnerId: null,
     log: [`${opts.hostName} created the room`],
+    chat: [],
     createdAt: now,
     updatedAt: now,
   };

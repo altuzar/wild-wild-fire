@@ -6,7 +6,7 @@ import { Flame } from "lucide-react";
 import { useAuth, loadName } from "@/lib/useAuth";
 import { useGame } from "@/lib/useGame";
 import { useBotDriver } from "@/lib/useBotDriver";
-import { joinRoom, leaveRoom } from "@/lib/actions";
+import { joinRoom, leaveRoom, markPresence } from "@/lib/actions";
 import { Lobby } from "@/components/Lobby";
 import { GameBoard } from "@/components/GameBoard";
 
@@ -36,15 +36,29 @@ export default function GameRoomPage({
 
   useBotDriver(game, user?.uid ?? null);
 
-  // Mark disconnected on unmount
+  // Presence: mark connected on mount/visibility-on, disconnected on unload/hide
   useEffect(() => {
     if (!user) return;
-    const handler = () => {
+
+    const goOffline = () => {
       leaveRoom(roomId, user.uid).catch(() => {});
     };
-    window.addEventListener("beforeunload", handler);
+    const goOnline = () => {
+      markPresence(roomId, user.uid, true).catch(() => {});
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") goOffline();
+      else goOnline();
+    };
+
+    window.addEventListener("beforeunload", goOffline);
+    window.addEventListener("pagehide", goOffline);
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
-      window.removeEventListener("beforeunload", handler);
+      window.removeEventListener("beforeunload", goOffline);
+      window.removeEventListener("pagehide", goOffline);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [user, roomId]);
 
